@@ -83,46 +83,12 @@ class IPAnalyzerApp(QMainWindow):
 
             for ip_address in ip_addresses:
                 if mode == '在线模式':
-                    message = self.fetch_ip_info(ip_address)
+                    message = self.fetch_ip_info_bili(ip_address)
                 else:
                     message = '离线模式（ToDo）'
 
                 self.display_information(message)
 
-    def extract_ips(self, text):
-        ipv4_pattern = r'\b(?:\d{1,3}\.){3}\d{1,3}\b'
-        ipv6_pattern = r'\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b|\b(?:[0-9a-fA-F]{1,4}:){1,7}:?:(?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4}\b'
-
-        ipv4_addresses = re.findall(ipv4_pattern, text)
-        ipv6_addresses = re.findall(ipv6_pattern, text)
-
-        return ipv4_addresses + ipv6_addresses
-
-    def fetch_ip_info(self, ip_address):
-        api_url = f"https://api.live.bilibili.com/ip_service/v1/ip_service/get_ip_addr?ip={ip_address}"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        }
-
-        try:
-            response = requests.get(api_url, headers=headers)
-            response.raise_for_status()
-            ip_info = response.json().get("data", {})
-            message = self.parse_ip_info(ip_info)
-            return message
-
-        except requests.RequestException as e:
-            return f"Failed to fetch info for IP Address {ip_address}. Error: {e}"
-
-    def parse_ip_info(self, ip_info):
-        addr = ip_info.get("addr", "")
-        country = ip_info.get("country", "")
-        province = ip_info.get("province", "")
-        city = ip_info.get("city", "")
-        isp = ip_info.get("isp", "")
-
-        result = f"地址: {addr}\n国家: {country}\n地址：{province} {city}\nISP: {isp}"
-        return result
 
     def display_information(self, message):
         self.text_widget.append(message)

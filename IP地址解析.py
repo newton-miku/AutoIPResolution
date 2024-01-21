@@ -1,6 +1,3 @@
-import os
-import re
-import sys
 import threading
 import time
 import tkinter as tk
@@ -8,65 +5,21 @@ from tkinter import Tk, Text, Scrollbar, END, W, N, S, E, ttk, StringVar
 
 import pyperclip
 import pystray
-import requests
 from PIL import Image
 from pystray import MenuItem as item
-from win10toast import ToastNotifier
-from extract_ips import extract_ips
+from win11toast import toast
+
+from util.apis import analyze_ip
+from getpath import get_all_res_path
 
 
-def parse_ip_info_bili(ip_info):
-    addr = ip_info.get("addr", "")
-    country = ip_info.get("country", "")
-    province = ip_info.get("province", "")
-    city = ip_info.get("city", "")
-    isp = ip_info.get("isp", "")
-
-    result = f"地址: {addr}\n国家: {country}\n地址：{province} {city}\nISP: {isp}"
-    return result
-
-
-def fetch_ip_info_bili(ip_address):
-    api_url = f"https://api.live.bilibili.com/ip_service/v1/ip_service/get_ip_addr?ip={ip_address}"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-    }
-
-    try:
-        response = requests.get(api_url, headers=headers)
-        response.raise_for_status()
-        ip_info = response.json().get("data", {})
-        message = parse_ip_info_bili(ip_info)
-        return message
-
-    except requests.RequestException as e:
-        return f"解析{ip_address}失败. 错误: {e}"
-
-def mannul_analyze_ip(dataText):
-    messages = analyze_ip(dataText)
+def manual_analyze_ip(data_text):
+    global mode_var
+    mode = mode_var.get()
+    messages = analyze_ip(data_text, mode)
     # clear_text()
     for message in messages:
         display_information(message)
-
-def analyze_ip(dataText):
-    ip_addresses = extract_ips(dataText)
-
-    messages = []
-    if ip_addresses:
-        for ip_address in ip_addresses:
-            # 根据下拉框选择解析模式
-            global mode_var
-            mode = mode_var.get()
-            if mode == "在线模式（B站源）":
-                message = fetch_ip_info_bili(ip_address)
-            else:
-                # 离线模式（ToDo）
-                message = "该模式正在开发"
-            messages.append(message)
-    else:
-        messages.append("未检测到有效IP地址")
-    # print(messages)
-    return messages
 
 
 def clipboard_monitor():
@@ -77,25 +30,26 @@ def clipboard_monitor():
 
         if current_clipboard_data != previous_clipboard_data:
             print("Clipboard content changed: ", current_clipboard_data)
-            messages = analyze_ip(current_clipboard_data)
+            global mode_var
+            mode = mode_var.get()
+            results = analyze_ip(current_clipboard_data, True, mode)
             global icoPath
-            for message in messages:
-                DisInfo_toAll(message, icoPath)
-            # win.after(0, DisInfo_toAll, message, icoPath)  # 在主线程中调度任务
+            for result in results:
+                ip_address = result.get("ip_address", "N/A")
+                message = result.get("message", "No message")
+                dis_info_to_all(message, icoPath, ip_address)
             previous_clipboard_data = current_clipboard_data
 
         time.sleep(1)
 
-# def my_show_toast(title, msg, duration=5, icon_path=None):
-#     ToastNotifier()._show_toast(title, msg, duration, str(icon_path))
-#
-# # 使用新的函数进行定义
-# ToastNotifier().show_toast = my_show_toast
 
-def DisInfo_toAll(message, icoPath):
+def dis_info_to_all(message, ico_path, addr=None):
     display_information(message)
-    toaster = ToastNotifier()
-    toaster.show_toast("IP查询监控", message, icon_path=str(icoPath), duration=3)
+    if addr is not None:
+        title = "IP查询监控-" + addr
+    else:
+        title = "IP查询监控"
+    toast(title, message, lambda args: show_window(), str(ico_path), duration="short", app_id="IP查询监控")
 
 
 def set_theme():
@@ -103,10 +57,13 @@ def set_theme():
     # 更改主题名称，你可以选择其他主题，比如"clam"、"alt"等
     style.theme_use("clam")
 
+
 def clear_text():
     text_widget.config(state="normal")
     text_widget.delete(1.0, END)
     text_widget.config(state="disabled")
+
+
 def display_information(message):
     # 更新 Tkinter 窗口中的信息
     text_widget.config(state="normal")
@@ -125,14 +82,14 @@ def update_scrollbar_visibility():
         scrollbar.grid(row=1, column=2, sticky=N + S, rowspan=2, padx=(0, 10), pady=10)  # 调整 y 轴上的位置和高度
 
 
-def quit_action(icon, item):
+def quit_action(icon):
     global exit_flag
     exit_flag = True
     icon.stop()
     win.destroy()
 
 
-def show_window(icon, item):
+def show_window():
     win.deiconify()
 
 
@@ -141,42 +98,28 @@ def on_exit():
 
 
 exit_flag = False
-toaster = ToastNotifier()
 
 menu = (
     item('显示', show_window),
     item('退出', quit_action)
 )
-toaster = ToastNotifier()
-toaster._show_toast = toaster.show_toast  # 保存原始的 show_toast 方法
 
-# 使用 threaded=False 禁用 WinToaster 的图标
-toaster.show_toast = lambda title, msg, duration=5, icon_path=None: toaster._show_toast(title, msg, duration, icon_path,
-                                                                                        threaded=False)
-# 获取资源文件路径
-if getattr(sys, 'frozen', None):
-    basedir = sys._MEIPASS
-else:
-    basedir = os.path.dirname(__file__)
-pngPath = os.path.join(basedir, 'res\\原神H.png')
-icoPath = os.path.join(basedir, 'res\\原神H.ico')
+pngPath, icoPath = get_all_res_path()
 print(pngPath, icoPath)
-
 image = Image.open(pngPath)
 icon = pystray.Icon("name", image, "IP地理位置查询", menu)
 win = Tk()
 win.title("IP地址解析")
 win.geometry("400x400")
 
-
 # 手动查询IP地址框（输入框）
 ip_entry = tk.Entry(win)
 ip_entry.grid(row=0, column=0, padx=10, pady=10, sticky=W + E)
 # 绑定回车键事件
-ip_entry.bind('<Return>', lambda event: mannul_analyze_ip(ip_entry.get()))
+ip_entry.bind('<Return>', lambda event: manual_analyze_ip(ip_entry.get()))
 
 # 添加查询按钮
-analyze_button = tk.Button(win, text="查询", command=lambda: mannul_analyze_ip(ip_entry.get()))
+analyze_button = tk.Button(win, text="查询", command=lambda: manual_analyze_ip(ip_entry.get()))
 analyze_button.grid(row=0, column=1, padx=10, pady=10, sticky=W + E)
 
 # 添加一个 Text 控件用于显示信息
@@ -190,14 +133,14 @@ scrollbar.grid(row=1, column=1, sticky=N + S, rowspan=2, padx=(0, 10), pady=10) 
 # 下拉框
 mode_var = StringVar(win)
 mode_var.set("在线模式（B站源）")  # 设置默认为在线模式
-modes = ["在线模式（B站源）","在线模式（数脉API-收费）", "离线模式"]  # 模式列表
+modes = ["在线模式（B站源）", "离线模式"]  # 模式列表
+# modes = ["在线模式（B站源）", "在线模式（数脉API-收费）", "离线模式"]  # 模式列表
 mode_dropdown = ttk.Combobox(win, textvariable=mode_var, values=modes, state="readonly", width=5)  # 调整width属性
 mode_dropdown.grid(row=2, column=0, padx=10, pady=10, sticky=W + E)
 
 # 添加清空按钮
 clear_button = tk.Button(win, text="清空", command=clear_text)
 clear_button.grid(row=2, column=1, padx=10, pady=10, sticky=W + E)
-
 
 # 在垂直方向上配置 rowconfigure，以允许滚动条伸缩
 win.rowconfigure(1, weight=1)

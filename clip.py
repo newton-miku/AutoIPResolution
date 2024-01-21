@@ -1,41 +1,15 @@
-import re
 import threading
 import time
-from tkinter import Tk, Text, Scrollbar, END, RIGHT, Y, W, N, S, E
-import requests
+from tkinter import Tk, Text, Scrollbar, END, W, N, S, E
 
 import pyperclip
 import pystray
 from PIL import Image
-from pystray import MenuItem as item, Menu
-from win10toast import ToastNotifier
+from pystray import MenuItem as item
+from win11toast import toast
 
-import re
-
-
-def extract_ips(text):
-    # 正则表达式匹配IPv4地址
-    ipv4_pattern = r'\b(?:\d{1,3}\.){3}\d{1,3}\b'
-
-    # 正则表达式匹配IPv6地址
-    ipv6_pattern = r'\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b|\b(?:[0-9a-fA-F]{1,4}:){1,7}:?:(?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4}\b'
-
-    # 提取匹配的IP地址
-    ipv4_addresses = re.findall(ipv4_pattern, text)
-    ipv6_addresses = re.findall(ipv6_pattern, text)
-
-    return ipv4_addresses + ipv6_addresses
-
-
-def parse_ip_info(ip_info):
-    addr = ip_info.get("addr", "")
-    country = ip_info.get("country", "")
-    province = ip_info.get("province", "")
-    city = ip_info.get("city", "")
-    isp = ip_info.get("isp", "")
-
-    result = f"地址: {addr}\n国家: {country}\n地址：{province} {city}\nISP: {isp}"
-    return result
+from getpath import get_all_res_path
+from util.apis import analyze_ip
 
 
 def clipboard_monitor():
@@ -48,35 +22,20 @@ def clipboard_monitor():
             # Clipboard content has changed
             print("Clipboard content changed: ", current_clipboard_data)
 
-            ip_addresses = extract_ips(current_clipboard_data)
-
-            # Display a Windows toast notification
-            if ip_addresses:
-                for ip_address in ip_addresses:
-                    api_url = f"https://api.live.bilibili.com/ip_service/v1/ip_service/get_ip_addr?ip={ip_address}"
-
-                    try:
-                        headers = {
-                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-                        }
-                        print(f"尝试解析{ip_address}")
-                        response = requests.get(api_url, headers=headers)
-                        response.raise_for_status()  # Raises HTTPError for bad responses
-
-                        ip_info = response.json().get("data", {})
-                        message = parse_ip_info(ip_info)
-                        print(message)
-                        display_information(message)
-                        ToastNotifier().show_toast("IP查询监控", message, icon_path="res/原神H.ico", duration=3)
-
-                    except requests.RequestException as e:
-                        print(f"Failed to fetch info for IP Address {ip_address}. Error: {e}")
+            messages = analyze_ip(current_clipboard_data)
+            for message in messages:
+                dis_info_to_all(message, icoPath)
 
             # Update the previous clipboard data
             previous_clipboard_data = current_clipboard_data
 
         # Check every 2 seconds
         time.sleep(1)
+
+
+def dis_info_to_all(message, ico_path):
+    display_information(message)
+    toast("IP查询监控", message, lambda args: show_window(), str(ico_path))
 
 
 def display_information(message):
@@ -113,20 +72,13 @@ def on_exit():
 
 
 exit_flag = False
-toaster = ToastNotifier()
-
 menu = (
     item('显示', show_window),
     item('退出', quit_action)
 )
-toaster = ToastNotifier()
-toaster._show_toast = toaster.show_toast  # 保存原始的 show_toast 方法
-
-# 使用 threaded=False 禁用 WinToaster 的图标
-toaster.show_toast = lambda title, msg, duration=5, icon_path=None: toaster._show_toast(title, msg, duration, icon_path,
-                                                                                        threaded=False)
-
-image = Image.open("res/原神H.png")
+pngPath, icoPath = get_all_res_path()
+print(pngPath, icoPath)
+image = Image.open(pngPath)
 icon = pystray.Icon("name", image, "IP地理位置查询", menu)
 win = Tk()
 win.title("IP地址解析")
