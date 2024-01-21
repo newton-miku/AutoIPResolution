@@ -12,23 +12,10 @@ import requests
 from PIL import Image
 from pystray import MenuItem as item
 from win10toast import ToastNotifier
+from extract_ips import extract_ips
 
 
-def extract_ips(text):
-    # 正则表达式匹配IPv4地址
-    ipv4_pattern = r'\b(?:\d{1,3}\.){3}\d{1,3}\b'
-
-    # 正则表达式匹配IPv6地址
-    ipv6_pattern = r'\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b|\b(?:[0-9a-fA-F]{1,4}:){1,7}:?:(?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4}\b'
-
-    # 提取匹配的IP地址
-    ipv4_addresses = re.findall(ipv4_pattern, text)
-    ipv6_addresses = re.findall(ipv6_pattern, text)
-
-    return ipv4_addresses + ipv6_addresses
-
-
-def parse_ip_info(ip_info):
+def parse_ip_info_bili(ip_info):
     addr = ip_info.get("addr", "")
     country = ip_info.get("country", "")
     province = ip_info.get("province", "")
@@ -39,7 +26,7 @@ def parse_ip_info(ip_info):
     return result
 
 
-def fetch_ip_info(ip_address):
+def fetch_ip_info_bili(ip_address):
     api_url = f"https://api.live.bilibili.com/ip_service/v1/ip_service/get_ip_addr?ip={ip_address}"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -49,15 +36,15 @@ def fetch_ip_info(ip_address):
         response = requests.get(api_url, headers=headers)
         response.raise_for_status()
         ip_info = response.json().get("data", {})
-        message = parse_ip_info(ip_info)
+        message = parse_ip_info_bili(ip_info)
         return message
 
     except requests.RequestException as e:
-        return f"Failed to fetch info for IP Address {ip_address}. Error: {e}"
+        return f"解析{ip_address}失败. 错误: {e}"
 
 def mannul_analyze_ip(dataText):
     messages = analyze_ip(dataText)
-    clear_text()
+    # clear_text()
     for message in messages:
         display_information(message)
 
@@ -70,11 +57,11 @@ def analyze_ip(dataText):
             # 根据下拉框选择解析模式
             global mode_var
             mode = mode_var.get()
-            if mode == "在线模式":
-                message = fetch_ip_info(ip_address)
+            if mode == "在线模式（B站源）":
+                message = fetch_ip_info_bili(ip_address)
             else:
                 # 离线模式（ToDo）
-                message = "Mode not implemented yet"
+                message = "该模式正在开发"
             messages.append(message)
     else:
         messages.append("未检测到有效IP地址")
@@ -99,10 +86,16 @@ def clipboard_monitor():
 
         time.sleep(1)
 
+# def my_show_toast(title, msg, duration=5, icon_path=None):
+#     ToastNotifier()._show_toast(title, msg, duration, str(icon_path))
+#
+# # 使用新的函数进行定义
+# ToastNotifier().show_toast = my_show_toast
 
 def DisInfo_toAll(message, icoPath):
     display_information(message)
-    ToastNotifier().show_toast("IP查询监控", message, icon_path=str(icoPath), duration=3)
+    toaster = ToastNotifier()
+    toaster.show_toast("IP查询监控", message, icon_path=str(icoPath), duration=3)
 
 
 def set_theme():
@@ -176,13 +169,13 @@ win.title("IP地址解析")
 win.geometry("400x400")
 
 
-# 手动查询IP地址框
+# 手动查询IP地址框（输入框）
 ip_entry = tk.Entry(win)
 ip_entry.grid(row=0, column=0, padx=10, pady=10, sticky=W + E)
 # 绑定回车键事件
 ip_entry.bind('<Return>', lambda event: mannul_analyze_ip(ip_entry.get()))
 
-# Add a button to trigger IP analysis
+# 添加查询按钮
 analyze_button = tk.Button(win, text="查询", command=lambda: mannul_analyze_ip(ip_entry.get()))
 analyze_button.grid(row=0, column=1, padx=10, pady=10, sticky=W + E)
 
@@ -192,14 +185,19 @@ text_widget.grid(row=1, column=0, padx=10, pady=10, sticky=W + N + S + E)
 
 # 添加一个滚动条
 scrollbar = Scrollbar(win, command=text_widget.yview)
-scrollbar.grid(row=1, column=2, sticky=N + S, rowspan=2, padx=(0, 10), pady=10)  # 调整 y 轴上的位置和高度
+scrollbar.grid(row=1, column=1, sticky=N + S, rowspan=2, padx=(0, 10), pady=10)  # 调整 y 轴上的位置和高度
 
 # 下拉框
 mode_var = StringVar(win)
-mode_var.set("在线模式")  # 设置默认为在线模式
-modes = ["在线模式", "离线模式"]  # 模式列表
-mode_dropdown = ttk.Combobox(win, textvariable=mode_var, values=modes, state="readonly")
-mode_dropdown.grid(row=2, column=0, padx=10, pady=10, columnspan=2, sticky=W + E)
+mode_var.set("在线模式（B站源）")  # 设置默认为在线模式
+modes = ["在线模式（B站源）","在线模式（数脉API-收费）", "离线模式"]  # 模式列表
+mode_dropdown = ttk.Combobox(win, textvariable=mode_var, values=modes, state="readonly", width=5)  # 调整width属性
+mode_dropdown.grid(row=2, column=0, padx=10, pady=10, sticky=W + E)
+
+# 添加清空按钮
+clear_button = tk.Button(win, text="清空", command=clear_text)
+clear_button.grid(row=2, column=1, padx=10, pady=10, sticky=W + E)
+
 
 # 在垂直方向上配置 rowconfigure，以允许滚动条伸缩
 win.rowconfigure(1, weight=1)
@@ -208,6 +206,8 @@ win.rowconfigure(1, weight=1)
 win.columnconfigure(0, weight=1)
 win.columnconfigure(1, weight=1)
 win.columnconfigure(2, weight=0)  # 不需要滚动条占用额外空间
+
+win.attributes("-alpha", 0.85)  # 根据需要调整透明度值
 
 # 重新定义点击关闭按钮的处理
 win.protocol('WM_DELETE_WINDOW', on_exit)

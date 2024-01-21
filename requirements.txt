@@ -1,0 +1,5 @@
+Pillow==10.0.0
+pyperclip==1.8.2
+pystray==0.19.5
+Requests==2.31.0
+win10toast==0.9
