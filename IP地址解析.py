@@ -33,12 +33,14 @@ def clipboard_monitor():
             global mode_var
             mode = mode_var.get()
             results = analyze_ip(current_clipboard_data, True, mode)
+            previous_clipboard_data = current_clipboard_data
+            if "未检测到有效IP地址" in results:
+                continue
             global icoPath
             for result in results:
                 ip_address = result.get("ip_address", "N/A")
                 message = result.get("message", "No message")
                 dis_info_to_all(message, icoPath, ip_address)
-            previous_clipboard_data = current_clipboard_data
 
         time.sleep(1)
 
