@@ -2,3 +2,4 @@ pyperclip==1.8.2
 pystray==0.19.5
 Requests==2.31.0
 win11toast==0.34
+sv_ttk

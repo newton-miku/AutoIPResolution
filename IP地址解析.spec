@@ -1,11 +1,15 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_data_files
+
+datas = [('./res/原神H.ico','./res'),('./res/原神H.png','./res')]
+datas += collect_data_files('sv_ttk')
 
 
 a = Analysis(
     ['IP地址解析.py'],
     pathex=[],
     binaries=[],
-    datas=[('./res/原神H.ico','./res'),('./res/原神H.png','./res')],
+    datas=datas,
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

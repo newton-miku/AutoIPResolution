@@ -9,15 +9,15 @@ from PIL import Image
 from pystray import MenuItem as item
 from win11toast import toast
 
+import sv_ttk  # Import the sv_ttk module
+
 from util.apis import analyze_ip
 from getpath import get_all_res_path
 
 
 def manual_analyze_ip(data_text):
-    global mode_var
     mode = mode_var.get()
-    messages = analyze_ip(data_text, mode)
-    # clear_text()
+    messages = analyze_ip(data_text, mode=mode)
     for message in messages:
         display_information(message)
 
@@ -29,18 +29,20 @@ def clipboard_monitor():
         current_clipboard_data = pyperclip.paste()
 
         if current_clipboard_data != previous_clipboard_data:
-            print("Clipboard content changed: ", current_clipboard_data)
-            global mode_var
             mode = mode_var.get()
             results = analyze_ip(current_clipboard_data, True, mode)
             previous_clipboard_data = current_clipboard_data
             if "未检测到有效IP地址" in results:
                 continue
             global icoPath
+            totalcount = 0
             for result in results:
+                if totalcount >= 4:
+                    break
                 ip_address = result.get("ip_address", "N/A")
                 message = result.get("message", "No message")
                 dis_info_to_all(message, icoPath, ip_address)
+                totalcount += 1
 
         time.sleep(1)
 
@@ -54,12 +56,6 @@ def dis_info_to_all(message, ico_path, addr=None):
     toast(title, message, lambda args: show_window(), str(ico_path), duration="short", app_id="IP查询监控")
 
 
-def set_theme():
-    style = ttk.Style()
-    # 更改主题名称，你可以选择其他主题，比如"clam"、"alt"等
-    style.theme_use("clam")
-
-
 def clear_text():
     text_widget.config(state="normal")
     text_widget.delete(1.0, END)
@@ -67,21 +63,10 @@ def clear_text():
 
 
 def display_information(message):
-    # 更新 Tkinter 窗口中的信息
     text_widget.config(state="normal")
     text_widget.insert(END, message + "\n\n")
     text_widget.config(state="disabled")
     text_widget.yview(END)
-    # 检查滚动条是否可见
-    # update_scrollbar_visibility()
-
-
-def update_scrollbar_visibility():
-    # 根据文本框是否需要滚动来隐藏或显示滚动条
-    if text_widget.get(1.0, "end-1c") == "":
-        scrollbar.grid_remove()  # 隐藏滚动条
-    else:
-        scrollbar.grid(row=1, column=2, sticky=N + S, rowspan=2, padx=(0, 10), pady=10)  # 调整 y 轴上的位置和高度
 
 
 def quit_action(icon):
@@ -107,62 +92,79 @@ menu = (
 )
 
 pngPath, icoPath = get_all_res_path()
-print(pngPath, icoPath)
 image = Image.open(pngPath)
 icon = pystray.Icon("name", image, "IP地理位置查询", menu)
-win = Tk()
-win.title("IP地址解析")
-win.geometry("400x400")
 
-# 手动查询IP地址框（输入框）
-ip_entry = tk.Entry(win)
-ip_entry.grid(row=0, column=0, padx=10, pady=10, sticky=W + E)
-# 绑定回车键事件
-ip_entry.bind('<Return>', lambda event: manual_analyze_ip(ip_entry.get()))
 
-# 添加查询按钮
-analyze_button = tk.Button(win, text="查询", command=lambda: manual_analyze_ip(ip_entry.get()))
-analyze_button.grid(row=0, column=1, padx=10, pady=10, sticky=W + E)
+def create_window():
+    # 声明全局变量
+    global win, ip_entry, text_widget, scrollbar, mode_var, mode_dropdown, clear_button
+    win = Tk()
+    win.title("IP地址解析")
+    win.geometry("350x550")  # 扩大窗口大小以适应内容
 
-# 添加一个 Text 控件用于显示信息
-text_widget = Text(win, wrap="word", width=40, height=10, state="disabled")
-text_widget.grid(row=1, column=0, padx=10, pady=10, sticky=W + N + S + E)
+    # 设置窗口透明度
+    win.attributes("-alpha", 0.85)
 
-# 添加一个滚动条
-scrollbar = Scrollbar(win, command=text_widget.yview)
-scrollbar.grid(row=1, column=1, sticky=N + S, rowspan=2, padx=(0, 10), pady=10)  # 调整 y 轴上的位置和高度
+    # 设置主题
+    sv_ttk.set_theme("dark")
 
-# 下拉框
-mode_var = StringVar(win)
-mode_var.set("在线模式（B站源）")  # 设置默认为在线模式
-modes = ["在线模式（B站源）", "离线模式"]  # 模式列表
-# modes = ["在线模式（B站源）", "在线模式（数脉API-收费）", "离线模式"]  # 模式列表
-mode_dropdown = ttk.Combobox(win, textvariable=mode_var, values=modes, state="readonly", width=5)  # 调整width属性
-mode_dropdown.grid(row=2, column=0, padx=10, pady=10, sticky=W + E)
+    # 创建主框架
+    main_frame = ttk.Frame(win, padding=10)
+    main_frame.pack(fill="both", expand=True)
 
-# 添加清空按钮
-clear_button = tk.Button(win, text="清空", command=clear_text)
-clear_button.grid(row=2, column=1, padx=10, pady=10, sticky=W + E)
+    # 创建输入区域框架
+    input_frame = ttk.Frame(main_frame)
+    input_frame.pack(fill="x", padx=10, pady=10)
 
-# 在垂直方向上配置 rowconfigure，以允许滚动条伸缩
-win.rowconfigure(1, weight=1)
+    # IP地址输入框
+    ip_entry = ttk.Entry(input_frame, font=("Arial", 12))
+    ip_entry.pack(side="left", fill="x", expand=True)
+    ip_entry.bind('<Return>', lambda event: manual_analyze_ip(ip_entry.get()))
 
-# 调整行列及大小
-win.columnconfigure(0, weight=1)
-win.columnconfigure(1, weight=1)
-win.columnconfigure(2, weight=0)  # 不需要滚动条占用额外空间
+    # 查询按钮
+    analyze_button = ttk.Button(input_frame, text="查询", command=lambda: manual_analyze_ip(ip_entry.get()))
+    analyze_button.pack(side="left", padx=(5, 0))
 
-win.attributes("-alpha", 0.85)  # 根据需要调整透明度值
+    # 创建文本显示区域框架
+    text_frame = ttk.Frame(main_frame)
+    text_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-# 重新定义点击关闭按钮的处理
-win.protocol('WM_DELETE_WINDOW', on_exit)
-# 在创建窗口后调用设置主题的函数
-set_theme()
+    # 文本显示区域
+    text_widget = Text(text_frame, wrap="word", font=("Arial", 10), state="disabled", background="#333",
+                       foreground="#FFF")
+    text_widget.pack(side="left", fill="both", expand=True, padx=5, pady=5)
 
-# 启动剪贴板监控线程
+    # 滚动条
+    scrollbar = Scrollbar(text_frame, command=text_widget.yview)
+    scrollbar.pack(side="right", fill="y")
+    text_widget['yscrollcommand'] = scrollbar.set
+
+    # 创建按钮区域框架
+    button_frame = ttk.Frame(main_frame)
+    button_frame.pack(fill="x", padx=10, pady=10)
+
+    # 模式选择下拉菜单
+    mode_var = StringVar(win)
+    mode_var.set("在线模式（B站源）")
+    modes = ["在线模式（B站源）",
+             "在线模式（ipinfo.io-限速）",
+             "在线模式（ipstack）",
+             "离线模式"]
+    mode_dropdown = ttk.Combobox(button_frame, textvariable=mode_var, values=modes, state="readonly",
+                                 width=15)  # 保持宽度不变
+    mode_dropdown.pack(side="left", fill="x", expand=True)
+
+    # 清空按钮
+    clear_button = ttk.Button(button_frame, text="清空", command=clear_text)
+    clear_button.pack(side="left", padx=(5, 0))
+
+    # 设置窗口关闭事件
+    win.protocol('WM_DELETE_WINDOW', on_exit)
+
+
 threading.Thread(target=clipboard_monitor, daemon=True).start()
-
-# 启动托盘图标
 threading.Thread(target=icon.run, daemon=True).start()
 
+create_window()
 win.mainloop()
