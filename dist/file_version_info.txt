@@ -31,10 +31,10 @@ VSVersionInfo(
         '080404b0',
         [StringStruct('CompanyName', 'Newton_miku'),
         StringStruct('FileDescription', 'IP地址解析'),
-        StringStruct('FileVersion', '2024.06.13.1441'),
+        StringStruct('FileVersion', '2024.06.16.0014'),
         StringStruct('LegalCopyright', 'Copyright (C) 2002-2024 Newton_miku. All Rights Reserved'),
         StringStruct('ProductName', 'IP地址解析'),
-        StringStruct('ProductVersion', '2024.06.13.1441')])
+        StringStruct('ProductVersion', '2024.06.16.0014')])
       ]), 
     VarFileInfo([VarStruct('Translation', [2052, 1200])])
   ]

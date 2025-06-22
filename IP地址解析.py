@@ -6,7 +6,7 @@ from tkinter import Tk, Text, Scrollbar, END, W, N, S, E, ttk, StringVar
 import pyperclip
 import pystray
 from PIL import Image
-from pystray import MenuItem as item
+from pystray import MenuItem as item,Menu
 from win11toast import toast
 
 import sv_ttk  # Import the sv_ttk module
@@ -87,12 +87,14 @@ def on_exit():
 exit_flag = False
 
 menu = (
-    item('显示', show_window),
+    item('显示', show_window, default=True),
+    Menu.SEPARATOR,
     item('退出', quit_action)
 )
 
 pngPath, icoPath = get_all_res_path()
 image = Image.open(pngPath)
+
 icon = pystray.Icon("name", image, "IP地理位置查询", menu)
 
 
